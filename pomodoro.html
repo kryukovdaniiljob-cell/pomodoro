@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pomodoro Timer</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --work-color: #e74c3c;
+      --short-color: #27ae60;
+      --long-color: #2980b9;
+      --bg-dark: #1a1a2e;
+      --bg-card: #16213e;
+      --text: #eaeaea;
+      --text-muted: #9a9ab0;
+      --accent: #e74c3c;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg-dark);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      padding: 24px;
+      transition: background 0.5s;
+    }
+
+    h1 {
+      font-size: 1.4rem;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    /* Mode tabs */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      background: var(--bg-card);
+      padding: 6px;
+      border-radius: 12px;
+    }
+
+    .tab {
+      padding: 8px 20px;
+      border-radius: 8px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.25s;
+    }
+
+    .tab.active {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    /* Timer card */
+    .card {
+      background: var(--bg-card);
+      border-radius: 24px;
+      padding: 48px 56px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 32px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+      min-width: 340px;
+    }
+
+    /* SVG ring */
+    .ring-wrap {
+      position: relative;
+      width: 220px;
+      height: 220px;
+    }
+
+    svg.ring {
+      width: 220px;
+      height: 220px;
+      transform: rotate(-90deg);
+    }
+
+    .ring-bg {
+      fill: none;
+      stroke: #2a2a4a;
+      stroke-width: 10;
+    }
+
+    .ring-progress {
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 10;
+      stroke-linecap: round;
+      stroke-dasharray: 628;
+      stroke-dashoffset: 0;
+      transition: stroke-dashoffset 1s linear, stroke 0.5s;
+    }
+
+    .timer-display {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+
+    .time {
+      font-size: 3.5rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .phase-label {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+    }
+
+    /* Controls */
+    .controls {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .btn-main {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      font-size: 1.6rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.15s, opacity 0.15s;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+    }
+
+    .btn-main:hover { transform: scale(1.07); }
+    .btn-main:active { transform: scale(0.95); opacity: 0.85; }
+
+    .btn-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: 2px solid #2a2a4a;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+
+    .btn-icon:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+
+    /* Sessions */
+    .sessions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #2a2a4a;
+      transition: background 0.3s;
+    }
+
+    .dot.done {
+      background: var(--accent);
+    }
+
+    /* Settings panel */
+    .settings {
+      background: var(--bg-card);
+      border-radius: 16px;
+      padding: 20px 28px;
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .setting-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .setting-group label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+    }
+
+    .setting-group input {
+      width: 60px;
+      padding: 6px 8px;
+      border-radius: 8px;
+      border: 1px solid #2a2a4a;
+      background: var(--bg-dark);
+      color: var(--text);
+      font-size: 1rem;
+      text-align: center;
+      font-weight: 600;
+    }
+
+    .setting-group input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    /* Notification bar */
+    .notif {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+    }
+
+    /* Body background tints per mode */
+    body.mode-work   { --accent: #e74c3c; }
+    body.mode-short  { --accent: #27ae60; }
+    body.mode-long   { --accent: #2980b9; }
+  </style>
+</head>
+<body class="mode-work">
+
+  <h1>Pomodoro</h1>
+
+  <div class="tabs">
+    <button class="tab active" data-mode="work"  data-minutes="25">Работа</button>
+    <button class="tab"        data-mode="short" data-minutes="5">Короткий перерыв</button>
+    <button class="tab"        data-mode="long"  data-minutes="15">Длинный перерыв</button>
+  </div>
+
+  <div class="card">
+    <div class="ring-wrap">
+      <svg class="ring" viewBox="0 0 220 220">
+        <circle class="ring-bg"       cx="110" cy="110" r="100"/>
+        <circle class="ring-progress" cx="110" cy="110" r="100" id="progress"/>
+      </svg>
+      <div class="timer-display">
+        <span class="time" id="time-display">25:00</span>
+        <span class="phase-label" id="phase-label">Работа</span>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn-icon" id="btn-skip" title="Следующий">&#9654;&#9654;</button>
+      <button class="btn-main" id="btn-play">&#9654;</button>
+      <button class="btn-icon" id="btn-reset" title="Сбросить">&#8635;</button>
+    </div>
+
+    <div class="sessions" id="sessions">
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+    </div>
+  </div>
+
+  <div class="settings">
+    <div class="setting-group">
+      <label>Работа (мин)</label>
+      <input type="number" id="set-work"  min="1" max="60" value="25">
+    </div>
+    <div class="setting-group">
+      <label>Короткий перерыв</label>
+      <input type="number" id="set-short" min="1" max="30" value="5">
+    </div>
+    <div class="setting-group">
+      <label>Длинный перерыв</label>
+      <input type="number" id="set-long"  min="1" max="60" value="15">
+    </div>
+    <div class="setting-group">
+      <label>Сессий до длинного</label>
+      <input type="number" id="set-count" min="1" max="8"  value="4">
+    </div>
+  </div>
+
+  <div class="notif" id="notif">Нажмите ▶ чтобы начать</div>
+
+  <script>
+    const CIRCUMFERENCE = 2 * Math.PI * 100; // ~628
+
+    const progressEl  = document.getElementById('progress');
+    const timeDisplay = document.getElementById('time-display');
+    const phaseLabel  = document.getElementById('phase-label');
+    const btnPlay     = document.getElementById('btn-play');
+    const btnReset    = document.getElementById('btn-reset');
+    const btnSkip     = document.getElementById('btn-skip');
+    const sessionsEl  = document.getElementById('sessions');
+    const notifEl     = document.getElementById('notif');
+    const tabs        = document.querySelectorAll('.tab');
+
+    const inputs = {
+      work:  document.getElementById('set-work'),
+      short: document.getElementById('set-short'),
+      long:  document.getElementById('set-long'),
+      count: document.getElementById('set-count'),
+    };
+
+    progressEl.style.strokeDasharray = CIRCUMFERENCE;
+
+    let mode       = 'work';      // 'work' | 'short' | 'long'
+    let totalSecs  = 25 * 60;
+    let remaining  = totalSecs;
+    let running    = false;
+    let timer      = null;
+    let completed  = 0;           // completed work sessions
+
+    const modeNames = { work: 'Работа', short: 'Короткий перерыв', long: 'Длинный перерыв' };
+
+    function getDurations() {
+      return {
+        work:  parseInt(inputs.work.value)  || 25,
+        short: parseInt(inputs.short.value) || 5,
+        long:  parseInt(inputs.long.value)  || 15,
+        count: parseInt(inputs.count.value) || 4,
+      };
+    }
+
+    function setMode(m, autoStart) {
+      mode = m;
+      const d = getDurations();
+      totalSecs = d[m] * 60;
+      remaining  = totalSecs;
+      running    = false;
+      clearInterval(timer);
+
+      document.body.className = 'mode-' + m;
+      tabs.forEach(t => t.classList.toggle('active', t.dataset.mode === m));
+      phaseLabel.textContent = modeNames[m];
+      btnPlay.innerHTML = '&#9654;';
+      render();
+      if (autoStart) start();
+    }
+
+    function render() {
+      const m = Math.floor(remaining / 60);
+      const s = remaining % 60;
+      timeDisplay.textContent = String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+
+      const frac = remaining / totalSecs;
+      progressEl.style.strokeDashoffset = CIRCUMFERENCE * (1 - frac);
+
+      // sessions dots
+      const count = getDurations().count;
+      sessionsEl.innerHTML = '';
+      for (let i = 0; i < count; i++) {
+        const d = document.createElement('div');
+        d.className = 'dot' + (i < completed ? ' done' : '');
+        sessionsEl.appendChild(d);
+      }
+
+      document.title = timeDisplay.textContent + ' — ' + modeNames[mode];
+    }
+
+    function start() {
+      running = true;
+      btnPlay.innerHTML = '&#9646;&#9646;';
+      notifEl.textContent = modeNames[mode] + ' идёт…';
+      timer = setInterval(tick, 1000);
+    }
+
+    function pause() {
+      running = false;
+      btnPlay.innerHTML = '&#9654;';
+      clearInterval(timer);
+      notifEl.textContent = 'Пауза';
+    }
+
+    function tick() {
+      remaining--;
+      render();
+      if (remaining <= 0) {
+        clearInterval(timer);
+        running = false;
+        onPhaseEnd();
+      }
+    }
+
+    function onPhaseEnd() {
+      const d = getDurations();
+      if (mode === 'work') {
+        completed++;
+        if (completed >= d.count) {
+          completed = 0;
+          notify('Отличная работа! Длинный перерыв заслужен 🎉');
+          setMode('long', true);
+        } else {
+          notify('Пора отдохнуть! Короткий перерыв.');
+          setMode('short', true);
+        }
+      } else {
+        notify('Перерыв закончен. Вперёд, работать!');
+        setMode('work', true);
+      }
+    }
+
+    function notify(msg) {
+      notifEl.textContent = msg;
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Pomodoro', { body: msg, icon: '' });
+      }
+    }
+
+    function skip() {
+      clearInterval(timer);
+      onPhaseEnd();
+    }
+
+    // Events
+    btnPlay.addEventListener('click', () => running ? pause() : start());
+    btnReset.addEventListener('click', () => { pause(); remaining = totalSecs; notifEl.textContent = 'Сброшено'; render(); });
+    btnSkip.addEventListener('click', skip);
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        pause();
+        const m = tab.dataset.mode;
+        setMode(m, false);
+      });
+    });
+
+    Object.values(inputs).forEach(inp => {
+      inp.addEventListener('change', () => {
+        pause();
+        setMode(mode, false);
+      });
+    });
+
+    // Request notification permission
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
+    // Init
+    setMode('work', false);
+    render();
+  </script>
+</body>
+</html>
