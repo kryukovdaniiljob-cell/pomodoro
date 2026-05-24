@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Price Analytics - Анализ цен</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #0f1419;
+      --surface: #1a1f2e;
+      --border: #2a2f3a;
+      --text: #e0e6ed;
+      --text-muted: #8a92a0;
+      --accent: #00d4ff;
+      --success: #00c853;
+      --warning: #ff9800;
+      --danger: #f44336;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 32px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid var(--border);
+    }
+
+    h1 { font-size: 2rem; font-weight: 700; }
+
+    .upload-section {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+      font-size: 0.9rem;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #000;
+    }
+
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 16px rgba(0,212,255,0.3); }
+
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover { border-color: var(--accent); }
+
+    #fileInput { display: none; }
+
+    .controls {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+
+    .search-box {
+      flex: 1;
+      min-width: 250px;
+      padding: 12px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.95rem;
+    }
+
+    .search-box:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 10px rgba(0,212,255,0.1);
+    }
+
+    .table-wrapper {
+      background: var(--surface);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      margin-bottom: 32px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    th {
+      background: #11171f;
+      padding: 16px;
+      text-align: left;
+      font-weight: 600;
+      border-bottom: 2px solid var(--border);
+      position: sticky;
+      top: 0;
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    tr:hover { background: rgba(0,212,255,0.05); }
+
+    .price {
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .price.best { color: var(--success); }
+    .price.worst { color: var(--danger); }
+    .price.mid { color: var(--warning); }
+
+    .diff {
+      font-size: 0.85rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+
+    .diff.positive { background: rgba(0,200,83,0.2); color: var(--success); }
+    .diff.negative { background: rgba(244,67,54,0.2); color: var(--danger); }
+
+    .charts {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+
+    .chart-card {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px solid var(--border);
+    }
+
+    .chart-card h3 {
+      margin-bottom: 16px;
+      font-size: 1.1rem;
+    }
+
+    canvas { max-height: 300px; }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      padding: 20px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+
+    .stat-label {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+
+    .stat-value {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .empty {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+
+    .empty-icon {
+      font-size: 3rem;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+
+    @media (max-width: 1024px) {
+      .charts { grid-template-columns: 1fr; }
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.7);
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal.active { display: flex; }
+
+    .modal-content {
+      background: var(--surface);
+      padding: 32px;
+      border-radius: 12px;
+      max-width: 500px;
+      width: 90%;
+      border: 1px solid var(--border);
+    }
+
+    .modal h2 { margin-bottom: 16px; }
+    .modal p { color: var(--text-muted); margin-bottom: 20px; line-height: 1.6; }
+    .modal-buttons { display: flex; gap: 12px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>📊 Price Analytics</h1>
+    <div class="upload-section">
+      <button class="btn btn-secondary" onclick="loadSampleData()">Примеры данных</button>
+      <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">📁 Загрузить Excel</button>
+      <input type="file" id="fileInput" accept=".xlsx,.csv" onchange="handleFileUpload(event)">
+    </div>
+  </header>
+
+  <div id="dataSection" style="display: none;">
+    <div class="controls">
+      <input type="text" class="search-box" id="searchInput" placeholder="🔍 Поиск товара по названию..." onkeyup="filterTable()">
+      <select class="search-box" id="sheetSelect" onchange="switchSheet()" style="flex: 0 0 250px;">
+        <option>Выбери таблицу</option>
+      </select>
+    </div>
+
+    <div class="stats" id="statsContainer"></div>
+
+    <div class="charts" id="chartsContainer"></div>
+
+    <div class="table-wrapper">
+      <table id="dataTable">
+        <thead id="tableHead"></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="emptyState" class="empty">
+    <div class="empty-icon">📊</div>
+    <h2>Загрузи свои данные</h2>
+    <p style="margin-top: 16px;">Поддерживаются Excel (.xlsx) и CSV файлы<br>Или выбери примеры данных чтобы увидеть как это работает</p>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
+<script>
+  let allData = [];
+  let sheets = [];
+  let currentSheet = 0;
+
+  function handleFileUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = new Uint8Array(ev.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+
+        sheets = workbook.SheetNames.map(name => {
+          const worksheet = workbook.Sheets[name];
+          const json = XLSX.utils.sheet_to_json(worksheet);
+          return { name, data: json };
+        });
+
+        populateSheetSelect();
+        switchSheet();
+        showData();
+      } catch (err) {
+        alert('Ошибка при чтении файла: ' + err.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function loadSampleData() {
+    sheets = [
+      {
+        name: 'Сравнение Mini-AHU',
+        data: [
+          { 'Модель': 'Mini-AHU-01', 'Shuft': 45000, 'Конкурент A': 48000, 'Конкурент B': 42000, 'Конкурент C': 50000 },
+          { 'Модель': 'Mini-AHU-02', 'Shuft': 52000, 'Конкурент A': 55000, 'Конкурент B': 51000, 'Конкурент C': 54000 },
+          { 'Модель': 'Mini-AHU-03', 'Shuft': 38000, 'Конкурент A': 40000, 'Конкурент B': 39000, 'Конкурент C': 41000 },
+          { 'Модель': 'Mini-AHU-04', 'Shuft': 61000, 'Конкурент A': 63000, 'Конкурент B': 59000, 'Конкурент C': 65000 },
+          { 'Модель': 'Mini-AHU-05', 'Shuft': 48000, 'Конкурент A': 50000, 'Конкурент B': 47000, 'Конкурент C': 52000 },
+        ]
+      },
+      {
+        name: 'Сравнение Турков',
+        data: [
+          { 'Модель': 'Турок-X1', 'Shuft': 125000, 'Конкурент A': 135000, 'Конкурент B': 128000 },
+          { 'Модель': 'Турок-X2', 'Shuft': 155000, 'Конкурент A': 165000, 'Конкурент B': 158000 },
+          { 'Модель': 'Турок-X3', 'Shuft': 185000, 'Конкурент A': 195000, 'Конкурент B': 188000 },
+          { 'Модель': 'Турок-Pro', 'Shuft': 225000, 'Конкурент A': 240000, 'Конкурент B': 230000 },
+        ]
+      }
+    ];
+
+    populateSheetSelect();
+    switchSheet();
+    showData();
+  }
+
+  function populateSheetSelect() {
+    const select = document.getElementById('sheetSelect');
+    select.innerHTML = '';
+    sheets.forEach((sheet, idx) => {
+      const opt = document.createElement('option');
+      opt.value = idx;
+      opt.textContent = sheet.name;
+      select.appendChild(opt);
+    });
+    select.selectedIndex = 0;
+  }
+
+  function switchSheet() {
+    currentSheet = parseInt(document.getElementById('sheetSelect').value);
+    renderTable();
+    renderStats();
+    renderCharts();
+    filterTable();
+  }
+
+  function renderTable() {
+    const sheet = sheets[currentSheet];
+    if (!sheet) return;
+
+    const data = sheet.data;
+    const keys = data.length > 0 ? Object.keys(data[0]) : [];
+
+    const thead = document.getElementById('tableHead');
+    thead.innerHTML = '<tr>' + keys.map(k => `<th>${k}</th>`).join('') + '</tr>';
+
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = data.map((row, idx) => {
+      const cells = keys.map(key => {
+        let val = row[key];
+        let cls = '';
+
+        if (typeof val === 'number' && key.toLowerCase().includes('price') ||
+            key.includes('Shuft') || key.includes('Конкурент') || key.includes('кой')) {
+          const prices = keys.filter(k => typeof row[k] === 'number').map(k => row[k]);
+          const minPrice = Math.min(...prices);
+          const maxPrice = Math.max(...prices);
+
+          if (val === minPrice) cls = 'price best';
+          else if (val === maxPrice) cls = 'price worst';
+          else cls = 'price mid';
+
+          val = `₽${val?.toLocaleString?.('ru-RU')}`;
+        }
+        return `<td class="${cls}">${val ?? '—'}</td>`;
+      }).join('');
+
+      return `<tr>${cells}</tr>`;
+    }).join('');
+  }
+
+  function renderStats() {
+    const sheet = sheets[currentSheet];
+    if (!sheet) return;
+
+    const data = sheet.data;
+    const keys = data[0] ? Object.keys(data[0]) : [];
+    const priceKeys = keys.filter(k => typeof data[0][k] === 'number');
+
+    let html = '';
+
+    priceKeys.forEach(key => {
+      const prices = data.map(r => r[key]).filter(p => typeof p === 'number');
+      const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
+      const min = Math.min(...prices);
+
+      html += `
+        <div class="stat-card">
+          <div class="stat-label">${key}</div>
+          <div class="stat-value">₽${avg.toFixed(0)}</div>
+          <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 8px;">
+            Мин: ₽${min.toLocaleString('ru-RU')}
+          </div>
+        </div>
+      `;
+    });
+
+    document.getElementById('statsContainer').innerHTML = html;
+  }
+
+  function renderCharts() {
+    const sheet = sheets[currentSheet];
+    if (!sheet || sheet.data.length === 0) return;
+
+    const data = sheet.data;
+    const keys = Object.keys(data[0]);
+    const priceKeys = keys.filter((k, i) => i > 0 && typeof data[0][k] === 'number');
+
+    if (priceKeys.length === 0) return;
+
+    let html = '';
+
+    // Средние цены
+    const avgChart = `
+      <div class="chart-card">
+        <h3>Средние цены</h3>
+        <canvas id="avgChart"></canvas>
+      </div>
+    `;
+    html += avgChart;
+
+    // Распределение цен
+    if (data.length > 0) {
+      const modelKey = keys[0];
+      const models = data.map(r => r[modelKey]).slice(0, 10);
+      const prices = data.map(r => r[priceKeys[0]]).slice(0, 10);
+
+      html += `
+        <div class="chart-card">
+          <h3>Цены по товарам</h3>
+          <canvas id="priceChart"></canvas>
+        </div>
+      `;
+    }
+
+    document.getElementById('chartsContainer').innerHTML = html;
+
+    setTimeout(() => {
+      // Средние цены
+      const avgPrices = priceKeys.map(key => {
+        const prices = data.map(r => r[key]).filter(p => typeof p === 'number');
+        return prices.reduce((a, b) => a + b, 0) / prices.length;
+      });
+
+      new Chart(document.getElementById('avgChart').getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: priceKeys,
+          datasets: [{
+            label: 'Средняя цена',
+            data: avgPrices,
+            backgroundColor: 'rgba(0,212,255,0.6)',
+            borderColor: 'rgba(0,212,255,1)',
+            borderWidth: 2
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: true, indexAxis: 'y' }
+      });
+
+      // Цены по товарам
+      if (document.getElementById('priceChart')) {
+        const modelKey = keys[0];
+        const models = data.map(r => r[modelKey]).slice(0, 10);
+        const prices = data.map(r => r[priceKeys[0]]).slice(0, 10);
+
+        new Chart(document.getElementById('priceChart').getContext('2d'), {
+          type: 'line',
+          data: {
+            labels: models,
+            datasets: [{
+              label: priceKeys[0],
+              data: prices,
+              borderColor: 'rgba(0,200,83,1)',
+              backgroundColor: 'rgba(0,200,83,0.1)',
+              borderWidth: 2,
+              fill: true,
+              tension: 0.4
+            }]
+          },
+          options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: true } } }
+        });
+      }
+    }, 100);
+  }
+
+  function filterTable() {
+    const input = document.getElementById('searchInput').value.toLowerCase();
+    const rows = document.querySelectorAll('#tableBody tr');
+
+    rows.forEach(row => {
+      const text = row.textContent.toLowerCase();
+      row.style.display = text.includes(input) ? '' : 'none';
+    });
+  }
+
+  function showData() {
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('dataSection').style.display = 'block';
+  }
+
+  // На старте показываем пустое состояние
+  document.getElementById('emptyState').style.display = 'block';
+  document.getElementById('dataSection').style.display = 'none';
+</script>
+
+</body>
+</html>
